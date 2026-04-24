@@ -275,6 +275,9 @@ void PCG::NoiseMapGenerator::Generate(TileType _tileArray[MAP_ROWS][MAP_COLUMNS]
     // Raylib's Perlin Noise function
     Image noiseImg = GenImagePerlinNoise(MAP_COLUMNS, MAP_ROWS, offsetX, offsetY, scale);
 
+    //raylib's cellular noise
+    //Image noiseImg = GenImageCellular(MAP_COLUMNS, MAP_ROWS, scale);
+
     for (int y = 0; y < MAP_ROWS; y++) {
         for (int x = 0; x < MAP_COLUMNS; x++) {
             // Read the brightness of the noise pixel
@@ -292,3 +295,4 @@ void PCG::NoiseMapGenerator::Generate(TileType _tileArray[MAP_ROWS][MAP_COLUMNS]
     }
     UnloadImage(noiseImg);
 }
+
