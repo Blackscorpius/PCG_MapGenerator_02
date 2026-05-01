@@ -19,9 +19,9 @@ int main() {
     int offsetY = GetRandomValue(0, 1000);
     float scale = 2.5f;
 
-    Image noiseImage = GenImagePerlinNoise(PCG::MAP_COLUMNS, PCG::MAP_ROWS, offsetX, offsetY, scale);
-    //Image noiseImage = GenImageCellular(PCG::MAP_COLUMNS, PCG::MAP_ROWS, PCG::TILE_SIZE);
-    //ImageColorContrast(&noiseImage, -50);
+    //Image noiseImage = GenImagePerlinNoise(PCG::MAP_COLUMNS, PCG::MAP_ROWS, offsetX, offsetY, scale);
+    Image noiseImage = GenImageCellular(PCG::MAP_COLUMNS, PCG::MAP_ROWS, PCG::TILE_SIZE);
+    ImageColorContrast(&noiseImage, -50);
 
 
     Color replacement = GRAY;
@@ -80,6 +80,7 @@ int main() {
     //tileMap.SetMapGenerator(new PCG::RandomMapGenerator());
     //tileMap.SetMapGenerator(new PCG::NoiseMapGenerator());
     //tileMap.SetMapGenerator(new PCG::GameOfLifeGenerator());
+    //tileMap.SetMapGenerator(new PCG::TerrainGenerator());
     //tileMap.GetMapGenerator()->Generate(tileMap.GetTileData()); // Generate the map using the selected generator
 
     while (!WindowShouldClose()) {

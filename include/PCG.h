@@ -26,7 +26,7 @@ namespace PCG {
     constexpr int TILE_SIZE = 4;
     constexpr int MAP_COLUMNS = (SCREEN_WIDTH / TILE_SIZE);
     constexpr int MAP_ROWS = (SCREEN_HEIGHT / TILE_SIZE);
-    constexpr Vector3 MAP_SIZE = { 16, 4, 16 };
+    constexpr Vector3 MAP_SIZE = { 32, 4, 32 };
 
     // UI variable defines used to position buttons on screen
     constexpr int BUTTON_WIDTH = 200;
@@ -70,7 +70,7 @@ namespace PCG {
         void Generate(TileType _tileArray[MAP_ROWS][MAP_COLUMNS]) override; // Override the pure virtual function
     };
 
-    // Noise Terrain Generator
+    // Terrain Generator
     class TerrainGenerator {
     public:
         TerrainGenerator();   // constructor
