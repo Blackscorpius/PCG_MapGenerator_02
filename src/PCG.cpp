@@ -63,11 +63,14 @@ Color PCG::TileMap::GetTileColor(PCG::TileType _tileType) const {
 // void PCG_DrawMap()
 // ============================================= 
 void PCG::TileMap::DrawMap() const {
-    for (int y = 0; y < MAP_ROWS; y++) {
+    /*for (int y = 0; y < MAP_ROWS; y++) {
         for (int x = 0; x < MAP_COLUMNS; x++) {
             DrawRectangle(x * PCG::TILE_SIZE, y * PCG::TILE_SIZE, PCG::TILE_SIZE, PCG::TILE_SIZE, PCG::TileMap::GetTileColor(tileArray[y][x]));
         }
-    }
+    }*/
+
+    //DrawModel(terrainModel, mapPos, 1.0f, RED);
+    DrawGrid(20, 1.0f);
 }
 
 // ============================================= 
@@ -296,3 +299,20 @@ void PCG::NoiseMapGenerator::Generate(TileType _tileArray[MAP_ROWS][MAP_COLUMNS]
     UnloadImage(noiseImg);
 }
 
+// =============================================
+// NoiseTerrainGenerator
+// =============================================
+// Constructor
+PCG::TerrainGenerator::TerrainGenerator() {
+    // nothing to initialize for now, but you could seed a random noise here if you want reproducible maps
+    
+}
+
+// Destructor
+PCG::TerrainGenerator::~TerrainGenerator() {
+    // nothing to clean up for now, but if you had allocated resources (like noise generators) you would release them here
+}
+
+void PCG::TerrainGenerator::Generate(Model _terrainModel) {
+    
+}
