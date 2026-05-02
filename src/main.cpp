@@ -15,18 +15,18 @@ int main() {
     camera.fovy = 45.0f;
     camera.projection = CAMERA_PERSPECTIVE;
 
-    int offsetX = GetRandomValue(0, 1000);
+    /*int offsetX = GetRandomValue(0, 1000);
     int offsetY = GetRandomValue(0, 1000);
-    float scale = 5.0f;
+    float scale = 5.0f;*/
 
-    Image noiseImage = GenImagePerlinNoise(PCG::MAP_COLUMNS, PCG::MAP_ROWS, offsetX, offsetY, scale);
+    //Image noiseImage = GenImagePerlinNoise(PCG::MAP_COLUMNS, PCG::MAP_ROWS, offsetX, offsetY, scale);
    // Image noiseImage = GenImageCellular(PCG::MAP_COLUMNS, PCG::MAP_ROWS, 16/*PCG::TILE_SIZE*/);
     //ImageColorContrast(&noiseImage, -25);
     //ImageColorInvert(&noiseImage);
 
 
-    Color replacement = GRAY;
-    unsigned char valleyFillHeight = 130;
+   // Color replacement = GRAY;
+    //unsigned char valleyFillHeight = 130;
 
 
 
@@ -52,11 +52,11 @@ int main() {
     //}
 
     //fill valleys
-    for (int i = 0; i < valleyFillHeight; i++)
+   /* for (int i = 0; i < valleyFillHeight; i++)
     {
         Color col = { i, i, i, 255 };
         ImageColorReplace(&noiseImage, col, {valleyFillHeight, valleyFillHeight, valleyFillHeight, 255});
-    }
+    }*/
 
     ////flatten peaks
     //for (int i = 255; i > 125; i--)
@@ -66,13 +66,8 @@ int main() {
     //}
 
 
-    Texture2D noiseTexture = LoadTextureFromImage(noiseImage);
-
-    Mesh terrainMesh = GenMeshHeightmap(noiseImage, PCG::MAP_SIZE);
-    Model terrainModel = LoadModelFromMesh(terrainMesh);
-
-    terrainModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = noiseTexture;
-    Vector3 mapPos = { (PCG::MAP_SIZE.x * 0.5f) * -1, 0, (PCG::MAP_SIZE.z * 0.5f) * -1 };
+    
+   // Vector3 mapPos = { (PCG::MAP_SIZE.x * 0.5f) * -1, 0, (PCG::MAP_SIZE.z * 0.5f) * -1 };
 
     SetTargetFPS(60);
 
@@ -80,7 +75,7 @@ int main() {
     PCG::TileMap tileMap;
     //comment out generators you dont want to use 
     //tileMap.SetMapGenerator(new PCG::RandomMapGenerator());
-    //tileMap.SetMapGenerator(new PCG::NoiseMapGenerator());
+    tileMap.SetMapGenerator(new PCG::NoiseMapGenerator());
     //tileMap.SetMapGenerator(new PCG::GameOfLifeGenerator());
     //tileMap.SetMapGenerator(new PCG::TerrainGenerator());
     //tileMap.GetMapGenerator()->Generate(tileMap.GetTileData()); // Generate the map using the selected generator
@@ -94,20 +89,26 @@ int main() {
             //tileMap.DrawMap();
 
             BeginMode3D(camera);
-            DrawModel(terrainModel, mapPos, 1.0f, RED);
-            DrawGrid(20, 1.0f);
+            tileMap.GetTerrainManager().Draw(camera);
+            //DrawModel(terrainModel, mapPos, 1.0f, RED);
+            //DrawGrid(20, 1.0f);
             EndMode3D();
 
             DrawText("Map Generator", 20, 20, 20, WHITE);
             tileMap.DrawGUI();
-            DrawTexture(noiseTexture, PCG::SCREEN_WIDTH - noiseTexture.width - 20, 20, WHITE);
-            DrawRectangleLines(PCG::SCREEN_WIDTH - noiseTexture.width - 20, 20, noiseTexture.width, noiseTexture.height, GREEN);
+
+            Texture2D noiseTexture = tileMap.GetTerrainManager().GetTexture();
+            if (noiseTexture.id > 0)
+            {
+                DrawTexture(noiseTexture, PCG::SCREEN_WIDTH - noiseTexture.width - 20, 20, WHITE);
+                DrawRectangleLines(PCG::SCREEN_WIDTH - noiseTexture.width - 20, 20, noiseTexture.width, noiseTexture.height, GREEN);
+
+            }
+            //DrawTexture(noiseTexture, PCG::SCREEN_WIDTH - noiseTexture.width - 20, 20, WHITE);
+            //DrawRectangleLines(PCG::SCREEN_WIDTH - noiseTexture.width - 20, 20, noiseTexture.width, noiseTexture.height, GREEN);
             
         EndDrawing();
     }
-
-    UnloadTexture(noiseTexture);
-    UnloadModel(terrainModel);
 
     CloseWindow();
     return 0;

@@ -21,6 +21,8 @@ PCG::TileMap::TileMap()
 
     // initialise the mapGenerator to null.
     mapGenerator = nullptr;
+
+    InitializeTerrain();
 }
 
 // =============================================
@@ -186,29 +188,66 @@ void PCG::TileMap::SaveMapImage(const char* filename) const {
 // ============================================= 
 void PCG::TileMap::DrawGUI() {
     // Reset Button
-    if (GuiButton(RESET_BUTTON_BOUNDS, "Reset Map")) {
-        // pass in this instances tileArray to our map generator, and call the generate function to fill it with new data.
-        GetMapGenerator()->Generate(tileArray);
+    if (GuiButton(RESET_BUTTON_BOUNDS, "Generate Map")) {
+        if (mapGenerator != nullptr)
+        {
+            GenerateNewMap();
+        }
+        else std::cout << "no map gen set" << std::endl;
+    }
+
+    //Regenerate Terrain
+    Rectangle terrainRect = { PCG::BUTTON_X, PCG::BUTTON_Y - 70, PCG::BUTTON_WIDTH, PCG::BUTTON_HEIGHT };
+    if (GuiButton(terrainRect, "New Terrain")) {
+        RegenerateTerrain();
     }
 
     // Save Data Button
-    Rectangle saveRect = { PCG::BUTTON_X, PCG::BUTTON_Y - 70, PCG::BUTTON_WIDTH, PCG::BUTTON_HEIGHT };
+    Rectangle saveRect = { PCG::BUTTON_X, PCG::BUTTON_Y - 140, PCG::BUTTON_WIDTH, PCG::BUTTON_HEIGHT };
     if (GuiButton(saveRect, "Save Map Data")) {
         SaveMapData(MAP_TEXT_FILENAME);
     }
 
     // Load Data Button
-    Rectangle loadRect = { PCG::BUTTON_X, PCG::BUTTON_Y - 140, PCG::BUTTON_WIDTH, PCG::BUTTON_HEIGHT };
+    Rectangle loadRect = { PCG::BUTTON_X, PCG::BUTTON_Y - 210, PCG::BUTTON_WIDTH, PCG::BUTTON_HEIGHT };
     if (GuiButton(loadRect, "Load Map Data")) {
         LoadMapData(MAP_TEXT_FILENAME);
+        UpdateTerrainFromMap();
     }
 
     // Save Image Button
-    Rectangle imgRect = { PCG::BUTTON_X, PCG::BUTTON_Y - 210, PCG::BUTTON_WIDTH, PCG::BUTTON_HEIGHT };
+    Rectangle imgRect = { PCG::BUTTON_X, PCG::BUTTON_Y - 280, PCG::BUTTON_WIDTH, PCG::BUTTON_HEIGHT };
     if (GuiButton(imgRect, "Save Map PNG")) {
         SaveMapImage(MAP_IMAGE_FILENAME);
     }
+
+    //Save Heightmap Button
+    Rectangle heightRect = { PCG::BUTTON_X, PCG::BUTTON_Y - 350, PCG::BUTTON_WIDTH, PCG::BUTTON_HEIGHT };
+    if (GuiButton(heightRect, "Save Heightmap")) {
+        terrainManager.SaveHeightmapImage("heightmap.png");
+    }
 }
+
+void PCG::TileMap::GenerateNewMap() {
+    if (mapGenerator != nullptr)
+    {
+        mapGenerator->Generate(tileArray);
+        UpdateTerrainFromMap();
+    }
+}
+
+void PCG::TileMap::RegenerateTerrain() {
+    terrainManager.GenerateFromNoise();
+}
+
+void PCG::TileMap::InitializeTerrain() {
+    terrainManager.GenerateFromNoise();
+}
+
+void PCG::TileMap::UpdateTerrainFromMap() {
+    terrainManager.GenerateFromTilemap(tileArray);
+}
+
 
 // =============================================
 // SetMapGenerator and GetMapGenerator functions for our TileMap class, to allow us to assign a map generator to our tilemap, and retrieve it when we want to generate new maps.
@@ -300,19 +339,185 @@ void PCG::NoiseMapGenerator::Generate(TileType _tileArray[MAP_ROWS][MAP_COLUMNS]
 }
 
 // =============================================
-// NoiseTerrainGenerator
+// NoiseTerrainManager
 // =============================================
 // Constructor
-PCG::TerrainGenerator::TerrainGenerator() {
-    // nothing to initialize for now, but you could seed a random noise here if you want reproducible maps
-    
+PCG::TerrainManager::TerrainManager() : isLoaded(false) {
+    mapPosition = { (PCG::MAP_SIZE.x * 0.5f) * -1, 0, (PCG::MAP_SIZE.z * 0.5f) * -1 };
+
+    noiseImage = { 0 };
+    noiseTexture = { 0 };
+    terrainModel = { 0 };
 }
 
-// Destructor
-PCG::TerrainGenerator::~TerrainGenerator() {
-    // nothing to clean up for now, but if you had allocated resources (like noise generators) you would release them here
+PCG::TerrainManager::~TerrainManager() {
+    if (isLoaded)
+    {
+        UnloadTexture(noiseTexture);
+        UnloadModel(terrainModel);
+        UnloadImage(noiseImage);
+    }
 }
 
-void PCG::TerrainGenerator::Generate(Model _terrainModel) {
-    
+void PCG::TerrainManager::GenerateFromNoise() {
+    //remove previous terrin if it exists
+    if (isLoaded)
+    {
+        UnloadTexture(noiseTexture);
+        UnloadModel(terrainModel);
+        UnloadImage(noiseImage);
+    }
+
+    //Generate Noise
+    int offsetX = GetRandomValue(0, 1000);
+    int offsetY = GetRandomValue(0, 1000);
+    float scale = 5.0f;
+    Image noiseImage = GenImagePerlinNoise(PCG::MAP_COLUMNS, PCG::MAP_ROWS, offsetX, offsetY, scale);
+    //Image noiseImage = GenImageCellular(PCG::MAP_COLUMNS, PCG::MAP_ROWS, PCG::TILE_SIZE);
+    ImageColorContrast(&noiseImage, -25);
+    //ImageColorInvert(&noiseImage);
+
+    //Fill Valleys ORIGINAL, VERY INEFFICIENT
+    // Color replacement = GRAY;
+    //for (int y = 0; y < noiseImage.width; y++)
+    //{
+    //    for (int x = 0; x < noiseImage.height; x++)
+    //    {
+    //        Color col = GetImageColor(noiseImage, x, y);
+    //        float brightness = (col.r + col.g + col.b) / (3.0f * 255.0f) * 100;
+    //        int intBrightness = (int)brightness;
+    //        std::cout << brightness << std::endl;
+    //        if (brightness < 55.0f /*&& brightness > 35.0f*/) {
+    //            if (brightness != 50.9804)
+    //            {
+    //                ImageColorReplace(&noiseImage, col, replacement);
+    //                std::cout << "is in range" << std::endl;
+    //            }
+    //        }
+    //        else {
+    //            std::cout << "not in range" << std::endl;
+    //        }
+    //    }
+    //}
+
+    //Fill Valleys
+    unsigned char valleyFillHeight = 130;
+    Color valleyColor = { valleyFillHeight, valleyFillHeight, valleyFillHeight, 255 };
+
+    for (int i = 0; i < valleyFillHeight; i++)
+    {
+        Color col = { i, i, i, 255 };
+        ImageColorReplace(&noiseImage, col, valleyColor);
+    }
+
+    //Flatten Peaks
+    unsigned char peakCapHeight = 255;
+    Color peakColor = { peakCapHeight, peakCapHeight, peakCapHeight, 255 };
+
+    for (int i = 255; i > peakCapHeight; i--)
+    {
+        Color col = { i, i, i, 255 };
+        ImageColorReplace(&noiseImage, col, peakColor);
+    }
+
+    //Create Texture and Model
+    noiseTexture = LoadTextureFromImage(noiseImage);
+    Mesh terrainMesh = GenMeshHeightmap(noiseImage, PCG::MAP_SIZE);
+    terrainModel = LoadModelFromMesh(terrainMesh);
+    terrainModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = noiseTexture;
+
+    isLoaded = true;
+    std::cout << "Terrain gennerated" << std::endl;
 }
+
+void PCG::TerrainManager::GenerateFromTilemap(const TileType tileArray[MAP_ROWS][MAP_COLUMNS]) {
+    if (isLoaded)
+    {
+        UnloadTexture(noiseTexture);
+        UnloadModel(terrainModel);
+        UnloadImage(noiseImage);
+    }
+
+    //Creating Heightmap from TileData
+   // Image heightMap = GenImageColor(MAP_COLUMNS, MAP_ROWS, BLACK);
+    noiseImage = GenImageColor(MAP_COLUMNS, MAP_ROWS, BLACK);
+
+    for (int y = 0; y < MAP_ROWS; y++)
+    {
+        for (int x = 0; x < MAP_COLUMNS; x++)
+        {
+            unsigned char height = (tileArray[y][x] == TILE_TYPE_GRASS) ? 80 : 180;
+            Color pixelColor = { height, height, height, 255 };
+            ImageDrawPixel(&noiseImage/*heightMap*/, x, y, pixelColor);
+        }
+    }
+    
+    noiseTexture = LoadTextureFromImage(noiseImage);
+    Mesh terrainMesh = GenMeshHeightmap(noiseImage, PCG::MAP_SIZE);
+    terrainModel = LoadModelFromMesh(terrainMesh);
+    terrainModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = noiseTexture;
+
+    isLoaded = true;
+    std::cout << "terrain generated from tilemap" << std::endl;
+}
+
+void PCG::TerrainManager::Draw(const Camera& camera) const {
+    if (isLoaded)
+    {
+        DrawModel(terrainModel, mapPosition, 1.0f, GREEN);
+    }
+    DrawGrid(20, 1.0f);
+}
+
+//void PCG::TerrainManager::SaveHeightmap(const char* filename) const {
+//    if (isLoaded)
+//    {
+//        ExportImage(noiseImage, filename);
+//        std::cout << "Heightmap save to: " << filename << std::endl;
+//    }
+//}
+
+void PCG::TerrainManager::SaveHeightmapImage(const char* filename) const {
+    if (isLoaded)
+    {
+        if (ExportImage(noiseImage, filename))
+        {
+            std::cout << "Heightmap save to: " << filename << std::endl;
+        }
+        else
+        {
+            std::cout << "Didn't save heightmap" << filename << std::endl;
+        }
+    }
+    else
+    {
+        std::cout << "nothing to save" << std::endl;
+    }
+}
+
+bool PCG::TerrainManager::LoadHeightmap(const char* filename) {
+    Image loadedImage = LoadImage(filename);
+    if (loadedImage.data == NULL)
+    {
+        std::cout << "Failed to load heightmap from" << filename << std::endl;
+        return false;
+    }
+
+    if (isLoaded)
+    {
+        UnloadTexture(noiseTexture);
+        UnloadModel(terrainModel);
+        UnloadImage(noiseImage);
+    }
+
+    noiseImage = loadedImage;
+    noiseTexture = LoadTextureFromImage(noiseImage);
+    Mesh terrainMesh = GenMeshHeightmap(noiseImage, PCG::MAP_SIZE);
+    terrainModel = LoadModelFromMesh(terrainMesh);
+    terrainModel.materials[0].maps[MATERIAL_MAP_DIFFUSE].texture = noiseTexture;
+
+    isLoaded = true;
+    std::cout << "Heightmap loaded from: " << filename << std::endl;
+    return true;
+}
+

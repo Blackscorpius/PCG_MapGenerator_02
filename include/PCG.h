@@ -23,7 +23,7 @@ namespace PCG {
     // Screen & Map Dimensions
     constexpr int SCREEN_WIDTH = 1024;
     constexpr int SCREEN_HEIGHT = 1024;
-    constexpr int TILE_SIZE = 4;
+    constexpr int TILE_SIZE = 16;
     constexpr int MAP_COLUMNS = (SCREEN_WIDTH / TILE_SIZE);
     constexpr int MAP_ROWS = (SCREEN_HEIGHT / TILE_SIZE);
     constexpr Vector3 MAP_SIZE = { 32, 8, 32 };
@@ -60,12 +60,38 @@ namespace PCG {
         void Generate(TileType _tileArray[MAP_ROWS][MAP_COLUMNS]) override; // Override the pure virtual function
     };
 
-    // Terrain Generator
-    class TerrainGenerator {
+    //// Terrain Generator
+    //class TerrainGenerator {
+    //public:
+    //    TerrainGenerator();   // constructor
+    //    ~TerrainGenerator();  // destructor
+    //    void Generate(Model _terrainModel);
+    //};
+
+    //Terrain Manager
+    class TerrainManager {
     public:
-        TerrainGenerator();   // constructor
-        ~TerrainGenerator();  // destructor
-        void Generate(Model _terrainModel);
+        TerrainManager();
+        ~TerrainManager();
+
+        void GenerateFromNoise(); //if using noise
+        void GenerateFromTilemap(const TileType tileArray[MAP_ROWS][MAP_COLUMNS]); //if using tile data
+        void Draw(const Camera& camera) const;
+        Texture2D GetTexture() const { 
+            return noiseTexture; 
+        }
+
+        //save/load Terrain Data
+        //void SaveHeightmap(const char* filename) const;
+        void SaveHeightmapImage(const char* filename) const;
+        bool LoadHeightmap(const char* filename);
+
+    private:
+        Model terrainModel;
+        Texture2D noiseTexture;
+        Image noiseImage;
+        Vector3 mapPosition;
+        bool isLoaded;
     };
 
     class TileMap {
@@ -79,10 +105,23 @@ namespace PCG {
         void PrintMap() const;
         void DrawGUI();
 
+        //Map Generation
+        void GenerateNewMap();
+        void RegenerateTerrain();
+
         // I/O Functions
         void SaveMapData(const char* filename) const;
         void SaveMapImage(const char* filename) const;
         void LoadMapData(const char* filename);
+
+        //Terrain Integration
+        void UpdateTerrainFromMap();
+        TerrainManager& GetTerrainManager() { 
+            return terrainManager; 
+        }
+        const TerrainManager& GetTerrainManager() const { 
+            return terrainManager; 
+        }
 
         // Accessors (Getters/Setters)
         void SetTile(int x, int y, PCG::TileType tileType);
@@ -97,8 +136,12 @@ namespace PCG {
         MapGenerator* GetMapGenerator() const;
 
     private:
-        TileType tileArray[MAP_ROWS][MAP_COLUMNS] = { PCG::TileType::TILE_TYPE_ROCK };  // 2D array to hold tile types for the map
+        TileType tileArray[MAP_ROWS][MAP_COLUMNS] /*= { PCG::TileType::TILE_TYPE_ROCK }*/;  // 2D array to hold tile types for the map
         MapGenerator* mapGenerator;
+        TerrainManager terrainManager;
+
+        //Helper Methods
+        void InitializeTerrain();
     };
 
 
