@@ -26,7 +26,7 @@ namespace PCG {
     constexpr int TILE_SIZE = 4;
     constexpr int MAP_COLUMNS = (SCREEN_WIDTH / TILE_SIZE);
     constexpr int MAP_ROWS = (SCREEN_HEIGHT / TILE_SIZE);
-    constexpr Vector3 MAP_SIZE = { 32, 4, 32 };
+    constexpr Vector3 MAP_SIZE = { 32, 8, 32 };
 
     // UI variable defines used to position buttons on screen
     constexpr int BUTTON_WIDTH = 200;
@@ -34,16 +34,6 @@ namespace PCG {
     constexpr int BUTTON_X = (SCREEN_WIDTH - BUTTON_WIDTH - 20);
     constexpr int BUTTON_Y = (SCREEN_HEIGHT - BUTTON_HEIGHT - 20);
     constexpr Rectangle RESET_BUTTON_BOUNDS = { BUTTON_X, BUTTON_Y, BUTTON_WIDTH, BUTTON_HEIGHT };
-
-    // Camera settings
-    /*constexpr Camera CAMERA = { 0 };
-    CAMERA.position = { 18.0f, 21.0f, 18.0f };
-    camera.target = { 0.0f, 0.0f, 0.0f };
-    camera.up = { 0.0f, 1.0f, 0.0f };
-    camera.fovy = 45.0f;
-    camera.projection = CAMERA_PERSPECTIVE;*/
-
-
 
     // Pure Virtual Base Class for Map Generation Algorithms
     class MapGenerator {

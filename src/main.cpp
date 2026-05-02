@@ -17,14 +17,16 @@ int main() {
 
     int offsetX = GetRandomValue(0, 1000);
     int offsetY = GetRandomValue(0, 1000);
-    float scale = 2.5f;
+    float scale = 5.0f;
 
-    //Image noiseImage = GenImagePerlinNoise(PCG::MAP_COLUMNS, PCG::MAP_ROWS, offsetX, offsetY, scale);
-    Image noiseImage = GenImageCellular(PCG::MAP_COLUMNS, PCG::MAP_ROWS, PCG::TILE_SIZE);
-    ImageColorContrast(&noiseImage, -50);
+    Image noiseImage = GenImagePerlinNoise(PCG::MAP_COLUMNS, PCG::MAP_ROWS, offsetX, offsetY, scale);
+   // Image noiseImage = GenImageCellular(PCG::MAP_COLUMNS, PCG::MAP_ROWS, 16/*PCG::TILE_SIZE*/);
+    //ImageColorContrast(&noiseImage, -25);
+    //ImageColorInvert(&noiseImage);
 
 
     Color replacement = GRAY;
+    unsigned char valleyFillHeight = 130;
 
 
 
@@ -50,10 +52,10 @@ int main() {
     //}
 
     //fill valleys
-    for (int i = 0; i < 130; i++)
+    for (int i = 0; i < valleyFillHeight; i++)
     {
         Color col = { i, i, i, 255 };
-        ImageColorReplace(&noiseImage, col, replacement);
+        ImageColorReplace(&noiseImage, col, {valleyFillHeight, valleyFillHeight, valleyFillHeight, 255});
     }
 
     ////flatten peaks
