@@ -9,7 +9,7 @@ int main() {
 
     // Setup camera
     Camera camera = { 0 };
-    camera.position = { 18.0f, 21.0f, 18.0f };
+    camera.position = { 30.0f, 25.0f, 30.0f };
     camera.target = { 0.0f, 0.0f, 0.0f };
     camera.up = { 0.0f, 1.0f, 0.0f };
     camera.fovy = 45.0f;
@@ -43,7 +43,7 @@ int main() {
             int previewY = 20;
             DrawTexture(heightmapTex, previewX, previewY, WHITE);
             DrawRectangleLines(previewX, previewY, heightmapTex.width, heightmapTex.height, GREEN);
-            DrawText("Heightmap Preview", previewX, previewY - 20, 10, WHITE);
+            DrawText("Heightmap Preview", previewX -20, previewY - 15, 10, WHITE);
         }
 
         EndDrawing();

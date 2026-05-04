@@ -66,7 +66,7 @@ void PCG::TerrainManager::GenerateFromPerlinNoise() {
     
     baseImage = ImageCopy(heightmapImage);
     BuildTerrainFromImage();
-    std::cout << "Perlin noise terrain generated!" << std::endl;
+    std::cout << "Generated Perlin Noise Terrain" << std::endl;
 }
 
 void PCG::TerrainManager::GenerateFromCellularNoise() {
@@ -76,7 +76,7 @@ void PCG::TerrainManager::GenerateFromCellularNoise() {
 
     baseImage = ImageCopy(heightmapImage);
     BuildTerrainFromImage();
-    std::cout << "Cellular noise terrain generated!" << std::endl;
+    std::cout << "Generated Cellular Noise Terrain" << std::endl;
 }
 
 void PCG::TerrainManager::GenerateRandomTerrain() {
@@ -96,7 +96,7 @@ void PCG::TerrainManager::GenerateRandomTerrain() {
 
     baseImage = ImageCopy(heightmapImage);
     BuildTerrainFromImage();
-    std::cout << "Random terrain generated!" << std::endl;
+    std::cout << "Generated Random Terrain" << std::endl;
 }
 
 // =============================================
@@ -174,7 +174,7 @@ void PCG::TerrainManager::Draw(const Camera& camera) const {
 
 void PCG::TerrainManager::SaveHeightmapImage(const char* filename) const {
     if (!isLoaded) {
-        std::cout << "No terrain to save!" << std::endl;
+        std::cout << "No Terrain to Save" << std::endl;
         return;
     }
 
@@ -182,13 +182,13 @@ void PCG::TerrainManager::SaveHeightmapImage(const char* filename) const {
         std::cout << "Heightmap image saved to: " << filename << std::endl;
     }
     else {
-        std::cout << "Failed to save heightmap image!" << std::endl;
+        std::cout << "Save Failed" << std::endl;
     }
 }
 
 void PCG::TerrainManager::SaveHeightmapData(const char* filename) const {
     if (!isLoaded) {
-        std::cout << "No terrain data to save!" << std::endl;
+        std::cout << "No terrain to Save" << std::endl;
         return;
     }
 
@@ -234,7 +234,7 @@ bool PCG::TerrainManager::LoadHeightmap(const char* filename) {
     file >> width >> height;
 
     if (width != MAP_COLUMNS || height != MAP_ROWS) {
-        std::cout << "Heightmap dimensions don't match!" << std::endl;
+        std::cout << "Heightmap dimensions don't match" << std::endl;
         return false;
     }
 
