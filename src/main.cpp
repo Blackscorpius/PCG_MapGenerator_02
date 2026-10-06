@@ -17,7 +17,6 @@ by Jeffery Myers is marked with CC0 1.0. To view a copy of this license, visit h
 
 int main ()
 {
-
 	const int Screen_Height = 600;
 	const int Screen_Width = 800;
 	const int Grid_Size = 20;
@@ -28,12 +27,13 @@ int main ()
 
 	struct GridPoint
 	{
-		Vector2 position;
-		int weight;
-		bool isRoom;
-		bool isPath;
-		int pathLife;
-		int moveCost;
+		Vector2 position = Vector2(0, 0);
+		int weight = 0;
+		bool isRoom = false;
+		bool isPath = false;
+		int pathLife = 0;
+		int moveCost = 0;
+		Color color = BLACK;
 	};
 	struct Particle
 	{
@@ -53,8 +53,6 @@ int main ()
 	}
 	else srand(seed);
 
-
-
 	int GridColumns = Screen_Width / Grid_Size;
 	int GridRows = Screen_Height / Grid_Size; 
 
@@ -71,6 +69,8 @@ int main ()
 	std::cout << "Grid Columns:" << GridColumns << "\n";
 	std::cout << "Grid Rows:" << GridRows << "\n";
 	std::cout << "Seed:" << seed << "\n";
+
+	auto indexOf = [&](int x, int y) { return x * GridRows + y; };
 	
 	SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_HIGHDPI);
 	InitWindow(Screen_Width, Screen_Height, "Slime Generator");
@@ -81,13 +81,6 @@ int main ()
 	int startRoomGridX = std::rand() % (GridColumns - startRoomGridWidth + 1);
 	int startRoomGridY = std::rand() % (GridRows - startRoomGridHeight + 1);
 
-	Rectangle newStartRoom; //spawn start room
-	newStartRoom.x = startRoomGridX * Grid_Size;
-	newStartRoom.y = startRoomGridY * Grid_Size;
-	newStartRoom.width = startRoomGridWidth * Grid_Size;
-	newStartRoom.height = startRoomGridHeight * Grid_Size;
-	startRoom.push_back(newStartRoom);
-
 	for (int i = 0; i < Rooms_Amount; i++) //spawn the rooms
 	{
 		int roomGridWidth = (std::rand() % 4) + 2;
@@ -95,53 +88,49 @@ int main ()
 
 		int gridX = std::rand() % (GridColumns - roomGridWidth + 1);
 		int gridY = std::rand() % (GridRows - roomGridHeight + 1);
-		Vector2 posOnGrid = Vector2(gridX, gridY);
-
-		/*Rectangle newRoom;
-		newRoom.x = gridX * Grid_Size;
-		newRoom.y = gridY * Grid_Size;
-		newRoom.width = roomGridWidth * Grid_Size;
-		newRoom.height = roomGridHeight * Grid_Size;
-
-		rooms.push_back(newRoom);*/
 		
-		for (const auto& point : gridPoints)
+		for (int dx = 0; dx < roomGridWidth; dx++)
 		{
-			if (point.position == posOnGrid)
+			for (int dy = 0; dy < roomGridHeight; dy++)
 			{
-
+				GridPoint& point = gridPoints[indexOf(gridX + dx, gridY + dy)];
+				point.isRoom = true;
+				point.color = RED;
 			}
 		}
+	}
 
-
+	for (int dx = 0; dx < startRoomGridWidth; dx++) //spawn starting room
+	{
+		for (int dy = 0; dy < startRoomGridHeight; dy++)
+		{
+			GridPoint& point = gridPoints[indexOf(startRoomGridX + dx, startRoomGridY + dy)];
+			point.isRoom = true;
+			point.color = PINK;
+		}
 	}
 	
 	// game loop
 	while (!WindowShouldClose())		// run the loop until the user presses ESCAPE or presses the Close button on the window
 	{
-
 		// drawing
 		BeginDrawing();
 
 		// Setup the back buffer for drawing (clear color and depth buffers)
 		ClearBackground(BLACK);
 
+		for (const auto& point : gridPoints) //new way for actually drawing based on grid cells
+		{
+			DrawRectangle(point.position.x * Grid_Size,
+				point.position.y * Grid_Size,
+				Grid_Size, Grid_Size, point.color);
+		}
+
 		for (int i = 0; i < Screen_Width; i += Grid_Size) {
 			DrawLine(i, 0, i, Screen_Height, LIGHTGRAY);
 		}
 		for (int i = 0; i < Screen_Height; i += Grid_Size) {
 			DrawLine(0, i, Screen_Width, i, LIGHTGRAY);
-		}
-
-		for (const auto& rect : rooms)
-		{
-			DrawRectangleRec(rect, MAROON);
-			DrawRectangleLinesEx(rect, 2, WHITE);
-		}
-		for (const auto& rect : startRoom)
-		{
-			DrawRectangleRec(rect, PINK);
-			DrawRectangleLinesEx(rect, 2, WHITE);
 		}
 		
 		// end the frame and get ready for the next one  (display frame, poll input, etc...)
