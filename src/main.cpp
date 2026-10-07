@@ -15,7 +15,7 @@ const int Rooms_Amount = 20;
 const int GridColumns = Screen_Width / Grid_Size;
 const int GridRows = Screen_Height / Grid_Size;
 
-const int MaxInfluence = 5;
+const int MaxInfluence = 10;
 
 // ---------- Types ----------
 enum class CellType
@@ -68,7 +68,7 @@ Color ColorFor(CellType type)
 std::vector<GridPoint> CreateGrid()
 {
 	std::vector<GridPoint> grid;
-	grid.reserve(GridColumns * GridRows);
+	grid.reserve(GridColumns * GridRows); //reserves this memory for all the cells upfront instead of trying to expand allocation later
 
 	for (int x = 0; x < GridColumns; x++)
 	{
@@ -82,7 +82,7 @@ std::vector<GridPoint> CreateGrid()
 	return grid;
 }
 
-void ClearGrid(std::vector<GridPoint>& grid)
+void ClearGrid(std::vector<GridPoint>& grid) //clears grid 
 {
 	for (auto& point : grid)
 	{
@@ -92,7 +92,7 @@ void ClearGrid(std::vector<GridPoint>& grid)
 	}
 }
 
-void CalculateWeights(std::vector<GridPoint>& grid)
+void CalculateWeights(std::vector<GridPoint>& grid) //using BFS to expand out from rooms and generate weight fields
 {
 	const int Unvisited = -1;
 	std::vector<int> distance(grid.size(), Unvisited);
@@ -132,9 +132,13 @@ void CalculateWeights(std::vector<GridPoint>& grid)
 
 	for (size_t i = 0; i < grid.size(); i++)
 	{
-		//grid[i].weight = distance[i];
-		grid[i].weight = std::max(0, MaxInfluence - distance[i]);
+		grid[i].weight = std::max(0, MaxInfluence - distance[i]); //inverts weight so closer rooms have heigher weight
 	}
+}
+
+bool RoomsOverlap(int ax, int ay, int aw, int ah, int bx, int by, int bw, int bh)
+{
+	return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
 }
 
 // ---------- Generation ----------
@@ -145,13 +149,28 @@ void GenerateDungeon(std::vector<GridPoint>& grid)
 	int startRoomGridX = std::rand() % (GridColumns - startRoomGridWidth + 1);
 	int startRoomGridY = std::rand() % (GridRows - startRoomGridHeight + 1);
 
+	const int Max_Placement_Attempts = 20;
+
 	for (int i = 0; i < Rooms_Amount; i++) // spawn the rooms
 	{
 		int roomGridWidth = (std::rand() % 4) + 2;
 		int roomGridHeight = (std::rand() % 4) + 2;
 
-		int gridX = std::rand() % (GridColumns - roomGridWidth + 1);
-		int gridY = std::rand() % (GridRows - roomGridHeight + 1);
+		int gridX = 0;
+		int gridY = 0;
+		bool overlapsStart = true;
+
+		for (int attempt = 0; attempt < Max_Placement_Attempts && overlapsStart; attempt++)
+		{
+			gridX = std::rand() % (GridColumns - roomGridWidth + 1);
+			gridY = std::rand() % (GridRows - roomGridHeight + 1);
+
+			overlapsStart = RoomsOverlap(gridX, gridY, roomGridWidth, roomGridHeight,
+				startRoomGridX, startRoomGridY,
+				startRoomGridWidth, startRoomGridHeight);
+		}
+
+		if (overlapsStart) continue; // couldn't find a valid spot, skip this room
 
 		for (int dx = 0; dx < roomGridWidth; dx++)
 		{
@@ -233,7 +252,6 @@ int main()
 		if (IsKeyPressed(KEY_W))
 		{
 			showWeights = !showWeights;
-			//DrawGrid(gridPoints, showWeights);
 		}
 
 		BeginDrawing();
