@@ -17,6 +17,9 @@ const int GridRows = Screen_Height / Grid_Size;
 
 const int MaxInfluence = 10;
 
+const int Particles_Amount = 5;
+const int Particle_Life = 10;
+
 // ---------- Types ----------
 enum class CellType
 {
@@ -46,6 +49,14 @@ struct Particle
 	GridCoord position;
 	std::vector<GridCoord> pathPoints;
 	int life = 0;
+};
+
+struct RoomRect
+{
+	int x = 0;
+	int y = 0;
+	int w = 0;
+	int h = 0;
 };
 
 // ---------- Grid helpers ----------
@@ -141,8 +152,50 @@ bool RoomsOverlap(int ax, int ay, int aw, int ah, int bx, int by, int bw, int bh
 	return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
 }
 
+std::vector<GridCoord> GetRoomRingCells(const std::vector<GridPoint>& grid, const RoomRect& room)
+{
+	std::vector<GridCoord> ring;
+
+	for (int x = room.x - 1; x <= room.x + room.w; x++)
+	{
+		for (int y = room.y - 1; y <= room.y + room.h; y++)
+		{
+			bool insideRoom = x >= room.x && x < room.x + room.w &&
+				y >= room.y && y < room.y + room.h;
+			if (insideRoom) continue;
+
+			if (x < 0 || x >= GridColumns || y < 0 || y >= GridRows) continue;
+
+			if (grid[IndexOf(x, y)].type != CellType::Empty) continue;
+
+			ring.push_back({ x, y });
+		}
+	}
+	return ring;
+}
+
+std::vector<Particle> SpawnParticles(const std::vector<GridPoint>& grid, const RoomRect& room)
+{
+	std::vector<GridCoord> ring = GetRoomRingCells(grid, room);
+	std::vector<Particle> particles;
+
+	if (ring.empty()) return particles;
+
+	particles.reserve(Particles_Amount);
+
+	for (int i = 0; i < Particles_Amount; i++)
+	{
+		Particle p;
+		p.position = ring[std::rand() % ring.size()];
+		p.life = Particle_Life;
+		p.pathPoints.push_back(p.position);
+		particles.push_back(p);
+	}
+	return particles;
+}
+
 // ---------- Generation ----------
-void GenerateDungeon(std::vector<GridPoint>& grid)
+RoomRect GenerateDungeon(std::vector<GridPoint>& grid)
 {
 	int startRoomGridWidth = (std::rand() % 4) + 2;
 	int startRoomGridHeight = (std::rand() % 4) + 2;
@@ -165,9 +218,7 @@ void GenerateDungeon(std::vector<GridPoint>& grid)
 			gridX = std::rand() % (GridColumns - roomGridWidth + 1);
 			gridY = std::rand() % (GridRows - roomGridHeight + 1);
 
-			overlapsStart = RoomsOverlap(gridX, gridY, roomGridWidth, roomGridHeight,
-				startRoomGridX, startRoomGridY,
-				startRoomGridWidth, startRoomGridHeight);
+			overlapsStart = RoomsOverlap(gridX, gridY, roomGridWidth, roomGridHeight, startRoomGridX, startRoomGridY, startRoomGridWidth, startRoomGridHeight);
 		}
 
 		if (overlapsStart) continue; // couldn't find a valid spot, skip this room
@@ -189,6 +240,7 @@ void GenerateDungeon(std::vector<GridPoint>& grid)
 		}
 	}
 	CalculateWeights(grid);
+	return { startRoomGridX, startRoomGridY, startRoomGridWidth, startRoomGridHeight };
 }
 
 
@@ -218,6 +270,53 @@ void DrawGrid(const std::vector<GridPoint>& grid, bool showWeights)
 	}
 }
 
+void DrawParticles(const std::vector<Particle>& particles)
+{
+	for (const auto& p : particles)
+	{
+		DrawRectangle(p.position.x * Grid_Size + 5,
+			p.position.y * Grid_Size + 5,
+			Grid_Size - 10, Grid_Size - 10, YELLOW);
+	}
+}
+
+void IterateParticles(const std::vector<Particle>& particles)
+{
+	for (const auto& p : particles)
+	{
+		for (int x = p.position.x - 1; x <= p.position.x; x++)
+		{
+			for (int y = p.position.y -1; y <= p.position.y; y++)
+			{
+				//get gridpoint with grid coord of this value
+				//check what its weight is
+				//store weight of tile
+			}
+		}
+		//randomly select a tile to move to based loosely on the weights (can still choose imperfect option)
+		//set current tile as path
+		//set new position based on selected tile
+		//add previous tile to path - increase weighting of path tile and energy efficiency of path (diminishing returns on both, but especially energy efficiency)
+		//check if new tile is room - if is, solidify all tiles from path and trigger particle spawns around collided room
+		// otherwisee
+		//decrease particle lifetime, decrease by less if moving on a path tile - kill if out of life
+		//
+	}
+}
+
+void ProgressPaths()
+{
+	//for each path
+	//slightly fade extra weighting and energy bonuses - fade much less if path is solidified
+	//don't decrease past what the tile was before becoming a path
+	//
+}
+
+void FinaliseGeneration()
+{
+	//after time, stop particles from spawning and remove all paths below a certain efficiency (maybe below half the efficienct they're given when becoming a path?)
+}
+
 // ---------- Main ----------
 int main()
 {
@@ -240,6 +339,8 @@ int main()
 
 	std::vector<GridPoint> gridPoints = CreateGrid();
 	GenerateDungeon(gridPoints);
+	RoomRect startRoom = GenerateDungeon(gridPoints);
+	std::vector<Particle> particles = SpawnParticles(gridPoints, startRoom);
 
 	// game loop
 	while (!WindowShouldClose())
@@ -247,7 +348,9 @@ int main()
 		if (IsKeyPressed(KEY_R)) // regenerate
 		{
 			ClearGrid(gridPoints);
-			GenerateDungeon(gridPoints);
+			//GenerateDungeon(gridPoints);
+			startRoom = GenerateDungeon(gridPoints);
+			particles = SpawnParticles(gridPoints, startRoom);
 		}
 		if (IsKeyPressed(KEY_W))
 		{
@@ -257,6 +360,7 @@ int main()
 		BeginDrawing();
 		ClearBackground(BLACK);
 		DrawGrid(gridPoints, showWeights);
+		DrawParticles(particles);
 		EndDrawing();
 	}
 
