@@ -280,7 +280,7 @@ void DrawParticles(const std::vector<Particle>& particles)
 	}
 }
 
-void IterateParticles(const std::vector<Particle>& particles)
+void IterateParticles(const std::vector<Particle>& particles, const std::vector<GridPoint>& options)
 {
 	for (const auto& p : particles)
 	{
@@ -288,8 +288,15 @@ void IterateParticles(const std::vector<Particle>& particles)
 		{
 			for (int y = p.position.y -1; y <= p.position.y; y++)
 			{
+				GridCoord gridPos;
+				gridPos.x = x;
+				gridPos.y = y;
 				//get gridpoint with grid coord of this value
-				//check what its weight is
+				auto op = std::find_if(options.begin(), options.end(), [gridPos](const std::vector<GridPoint>& s)
+					{
+						return 0;
+					});
+				//check what its weight is or if room tile
 				//store weight of tile
 			}
 		}
@@ -298,6 +305,7 @@ void IterateParticles(const std::vector<Particle>& particles)
 		//set new position based on selected tile
 		//add previous tile to path - increase weighting of path tile and energy efficiency of path (diminishing returns on both, but especially energy efficiency)
 		//check if new tile is room - if is, solidify all tiles from path and trigger particle spawns around collided room
+		// then destroy particle
 		// otherwisee
 		//decrease particle lifetime, decrease by less if moving on a path tile - kill if out of life
 		//
@@ -314,7 +322,7 @@ void ProgressPaths()
 
 void FinaliseGeneration()
 {
-	//after time, stop particles from spawning and remove all paths below a certain efficiency (maybe below half the efficienct they're given when becoming a path?)
+	//after time (and/or all rooms connected), stop particles from spawning and remove all paths below a certain efficiency (maybe below half the efficienct they're given when becoming a path?)
 }
 
 // ---------- Main ----------
