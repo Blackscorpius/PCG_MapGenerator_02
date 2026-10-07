@@ -92,41 +92,6 @@ void ClearGrid(std::vector<GridPoint>& grid)
 	}
 }
 
-// ---------- Generation ----------
-void GenerateDungeon(std::vector<GridPoint>& grid)
-{
-	int startRoomGridWidth = (std::rand() % 4) + 2;
-	int startRoomGridHeight = (std::rand() % 4) + 2;
-	int startRoomGridX = std::rand() % (GridColumns - startRoomGridWidth + 1);
-	int startRoomGridY = std::rand() % (GridRows - startRoomGridHeight + 1);
-
-	for (int i = 0; i < Rooms_Amount; i++) // spawn the rooms
-	{
-		int roomGridWidth = (std::rand() % 4) + 2;
-		int roomGridHeight = (std::rand() % 4) + 2;
-
-		int gridX = std::rand() % (GridColumns - roomGridWidth + 1);
-		int gridY = std::rand() % (GridRows - roomGridHeight + 1);
-
-		for (int dx = 0; dx < roomGridWidth; dx++)
-		{
-			for (int dy = 0; dy < roomGridHeight; dy++)
-			{
-				grid[IndexOf(gridX + dx, gridY + dy)].type = CellType::Room;
-			}
-		}
-	}
-
-	for (int dx = 0; dx < startRoomGridWidth; dx++) // spawn starting room
-	{
-		for (int dy = 0; dy < startRoomGridHeight; dy++)
-		{
-			grid[IndexOf(startRoomGridX + dx, startRoomGridY + dy)].type = CellType::StartRoom;
-		}
-	}
-	//CalculateWeights();
-}
-
 void CalculateWeights(std::vector<GridPoint>& grid)
 {
 	const int Unvisited = -1;
@@ -172,6 +137,42 @@ void CalculateWeights(std::vector<GridPoint>& grid)
 	}
 }
 
+// ---------- Generation ----------
+void GenerateDungeon(std::vector<GridPoint>& grid)
+{
+	int startRoomGridWidth = (std::rand() % 4) + 2;
+	int startRoomGridHeight = (std::rand() % 4) + 2;
+	int startRoomGridX = std::rand() % (GridColumns - startRoomGridWidth + 1);
+	int startRoomGridY = std::rand() % (GridRows - startRoomGridHeight + 1);
+
+	for (int i = 0; i < Rooms_Amount; i++) // spawn the rooms
+	{
+		int roomGridWidth = (std::rand() % 4) + 2;
+		int roomGridHeight = (std::rand() % 4) + 2;
+
+		int gridX = std::rand() % (GridColumns - roomGridWidth + 1);
+		int gridY = std::rand() % (GridRows - roomGridHeight + 1);
+
+		for (int dx = 0; dx < roomGridWidth; dx++)
+		{
+			for (int dy = 0; dy < roomGridHeight; dy++)
+			{
+				grid[IndexOf(gridX + dx, gridY + dy)].type = CellType::Room;
+			}
+		}
+	}
+
+	for (int dx = 0; dx < startRoomGridWidth; dx++) // spawn starting room
+	{
+		for (int dy = 0; dy < startRoomGridHeight; dy++)
+		{
+			grid[IndexOf(startRoomGridX + dx, startRoomGridY + dy)].type = CellType::StartRoom;
+		}
+	}
+	CalculateWeights(grid);
+}
+
+
 // ---------- Drawing ----------
 void DrawGrid(const std::vector<GridPoint>& grid, bool showWeights)
 {
@@ -181,7 +182,6 @@ void DrawGrid(const std::vector<GridPoint>& grid, bool showWeights)
 		int py = point.position.y * Grid_Size;
 
 		DrawRectangle(px, py, Grid_Size, Grid_Size, ColorFor(point.type));
-		DrawRectangle(point.position.x * Grid_Size, point.position.y * Grid_Size, Grid_Size, Grid_Size, ColorFor(point.type));
 
 		if (showWeights)
 		{
