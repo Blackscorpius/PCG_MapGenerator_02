@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <queue>
 #include <algorithm>
+#include <cmath>
 
 // ---------- Constants ----------
 const int Screen_Height = 600;
@@ -18,7 +19,20 @@ const int GridRows = Screen_Height / Grid_Size;
 const int MaxInfluence = 10;
 
 const int Particles_Amount = 5;
-const int Particle_Life = 10;
+const int Particle_Life = 50;
+const int Weight_Bias = 1;            // added to every weight so zero-weight cells can still be picked, bigger bias means more randomness in pathing
+const float Step_Interval = 0.1f;     // seconds between particle moves
+const float Base_Step_Cost = 1.0f;       // life lost per step on an empty cell
+const float Path_Move_Discount = 0.2f;
+const float Min_Step_Cost = 0.2f;
+
+const float Path_Initial_Bonus = 1.0f;   // attraction a freshly laid path starts with
+const float Path_Weight_Gain = 1.0f;     // bonus added by the first reinforcement
+const float Path_Weight_Falloff = 0.7f;  // each later reinforcement adds 70% of the previous one
+const float Path_Cost_Gain = 0.15f;      // cost reduction from the first reinforcement
+const float Path_Cost_Falloff = 0.5f;    // cost gains shrink faster than weight gains
+const float Max_Path_Bonus = 4.0f;       // ceiling on a single cell's bonus
+const float Path_Weight_Cap = MaxInfluence - 2.0f;  // a path cell's total weight never exceeds this
 
 // ---------- Types ----------
 enum class CellType
@@ -41,14 +55,16 @@ struct GridPoint
 	CellType type = CellType::Empty;
 	int weight = 0;
 	int pathLife = 0;
-	int moveCost = 0;
+	float moveCost = 0.0f;
+	float pathBonus = 0.0f;
+	int pathUses = 0;
 };
 
 struct Particle
 {
 	GridCoord position;
 	std::vector<GridCoord> pathPoints;
-	int life = 0;
+	float life = 0.0f;
 };
 
 struct RoomRect
@@ -164,6 +180,10 @@ std::vector<GridCoord> GetRoomRingCells(const std::vector<GridPoint>& grid, cons
 				y >= room.y && y < room.y + room.h;
 			if (insideRoom) continue;
 
+			bool outsideX = x < room.x || x >= room.x + room.w;
+			bool outsideY = y < room.y || y >= room.y + room.h;
+			if (outsideX && outsideY) continue; // checknig for corners
+
 			if (x < 0 || x >= GridColumns || y < 0 || y >= GridRows) continue;
 
 			if (grid[IndexOf(x, y)].type != CellType::Empty) continue;
@@ -243,6 +263,140 @@ RoomRect GenerateDungeon(std::vector<GridPoint>& grid)
 	return { startRoomGridX, startRoomGridY, startRoomGridWidth, startRoomGridHeight };
 }
 
+int PickWeightedIndex(const std::vector<float>& weights)
+{
+	float total = 0.0f;
+	for (float w : weights)
+	{
+		total += w + Weight_Bias;
+	}
+
+	float roll = (std::rand() / static_cast<float>(RAND_MAX)) * total;
+
+	for (size_t i = 0; i < weights.size(); i++)
+	{
+		roll -= weights[i] + Weight_Bias;
+		if (roll < 0.0f)
+		{
+			return static_cast<int>(i);
+		}
+	}
+	return static_cast<int>(weights.size()) - 1;
+}
+
+bool PathContains(const std::vector<GridCoord>& path, int x, int y)
+{
+	return std::any_of(path.begin(), path.end(),
+		[x, y](const GridCoord& c) { return c.x == x && c.y == y; });
+}
+
+void ReinforcePath(GridPoint& cell)
+{
+	float uses = static_cast<float>(cell.pathUses);
+	cell.pathBonus = std::min(Max_Path_Bonus, cell.pathBonus + Path_Weight_Gain * std::pow(Path_Weight_Falloff, uses));
+	cell.moveCost = std::max(Min_Step_Cost - Base_Step_Cost, cell.moveCost - Path_Cost_Gain * std::pow(Path_Cost_Falloff, uses));
+	cell.pathUses++;
+}
+
+float EffectiveWeight(const GridPoint& cell)
+{
+	float w = static_cast<float>(cell.weight);
+	if (cell.type == CellType::Path)
+	{
+		w = std::max(w, std::min(w + cell.pathBonus, Path_Weight_Cap));
+	}
+	return w;
+}
+
+void IterateParticles(std::vector<Particle>& particles, std::vector<GridPoint>& grid)
+{
+	const GridCoord directions[4] = { {1, 0}, {-1, 0}, {0, 1}, {0, -1} };
+
+	for (auto& p : particles)
+	{
+		std::vector<GridCoord> candidates;
+		std::vector<float> candidateWeights;
+
+		for (const auto& d : directions)
+		{
+			int nx = p.position.x + d.x;
+			int ny = p.position.y + d.y;
+
+			if (nx < 0 || nx >= GridColumns || ny < 0 || ny >= GridRows) continue;
+
+			const GridPoint& cell = grid[IndexOf(nx, ny)];
+			if (cell.type == CellType::StartRoom) continue; // don't wander back into the start room
+			if (PathContains(p.pathPoints, nx, ny)) continue; //don't double back on own path
+
+			float w = static_cast<float>(cell.weight);
+
+			if (cell.type == CellType::Path)
+			{
+				w = std::min(w + cell.pathBonus, Path_Weight_Cap);
+			}
+			candidates.push_back({ nx, ny });
+			candidateWeights.push_back(EffectiveWeight(cell));
+		}
+
+		if (candidates.empty())
+		{
+			p.life = 0; // boxed in
+			continue;
+		}
+
+		int choice = PickWeightedIndex(candidateWeights);
+
+		GridCoord previous = p.position;
+		p.position = candidates[choice];
+		p.pathPoints.push_back(p.position);
+
+		GridPoint& destCell = grid[IndexOf(p.position.x, p.position.y)];
+		GridPoint& previousCell = grid[IndexOf(previous.x, previous.y)];
+
+		// cost of the cell we're stepping INTO; paths laid by other particles make it cheaper
+		float stepCost = std::max(Min_Step_Cost, Base_Step_Cost + destCell.moveCost);
+
+		if (destCell.type == CellType::Path)
+		{
+			ReinforcePath(destCell);
+		}
+
+		// leave a trail on the cell we just left
+		if (previousCell.type == CellType::Empty)
+		{
+			previousCell.type = CellType::Path;
+			previousCell.moveCost -= Path_Move_Discount;
+			previousCell.pathBonus = Path_Initial_Bonus;
+			previousCell.pathUses = 0;
+		}
+
+		if (destCell.type == CellType::Room)
+		{
+			// TODO: solidify p.pathPoints, spawn new particles around this room
+			p.life = 0;
+		}
+		else
+		{
+			p.life -= stepCost;
+		}
+	}
+
+	// remove dead particles after the loop, never during it
+	particles.erase(std::remove_if(particles.begin(), particles.end(), [](const Particle& p) { return p.life <= 0; }), particles.end());
+}
+
+void ProgressPaths()
+{
+	//for each path
+	//slightly fade extra weighting and energy bonuses - fade much less if path is solidified
+	//don't decrease past what the tile was before becoming a path
+	//
+}
+
+void FinaliseGeneration()
+{
+	//after time (and/or all rooms connected), stop particles from spawning and remove all paths below a certain efficiency (maybe below half the efficienct they're given when becoming a path?)
+}
 
 // ---------- Drawing ----------
 void DrawGrid(const std::vector<GridPoint>& grid, bool showWeights)
@@ -256,7 +410,14 @@ void DrawGrid(const std::vector<GridPoint>& grid, bool showWeights)
 
 		if (showWeights)
 		{
-			DrawText(TextFormat("%d", point.weight), px + 4, py + 4, 10, WHITE);
+			if (point.type == CellType::Path)
+			{
+				DrawText(TextFormat("%.1f", EffectiveWeight(point)), px + 2, py + 5, 10, YELLOW);
+			}
+			else
+			{
+				DrawText(TextFormat("%d", point.weight), px + 4, py + 4, 10, WHITE);
+			}
 		}
 	}
 
@@ -280,50 +441,6 @@ void DrawParticles(const std::vector<Particle>& particles)
 	}
 }
 
-void IterateParticles(const std::vector<Particle>& particles, const std::vector<GridPoint>& options)
-{
-	for (const auto& p : particles)
-	{
-		for (int x = p.position.x - 1; x <= p.position.x; x++)
-		{
-			for (int y = p.position.y -1; y <= p.position.y; y++)
-			{
-				GridCoord gridPos;
-				gridPos.x = x;
-				gridPos.y = y;
-				//get gridpoint with grid coord of this value
-				auto op = std::find_if(options.begin(), options.end(), [gridPos](const std::vector<GridPoint>& s)
-					{
-						return 0;
-					});
-				//check what its weight is or if room tile
-				//store weight of tile
-			}
-		}
-		//randomly select a tile to move to based loosely on the weights (can still choose imperfect option)
-		//set current tile as path
-		//set new position based on selected tile
-		//add previous tile to path - increase weighting of path tile and energy efficiency of path (diminishing returns on both, but especially energy efficiency)
-		//check if new tile is room - if is, solidify all tiles from path and trigger particle spawns around collided room
-		// then destroy particle
-		// otherwisee
-		//decrease particle lifetime, decrease by less if moving on a path tile - kill if out of life
-		//
-	}
-}
-
-void ProgressPaths()
-{
-	//for each path
-	//slightly fade extra weighting and energy bonuses - fade much less if path is solidified
-	//don't decrease past what the tile was before becoming a path
-	//
-}
-
-void FinaliseGeneration()
-{
-	//after time (and/or all rooms connected), stop particles from spawning and remove all paths below a certain efficiency (maybe below half the efficienct they're given when becoming a path?)
-}
 
 // ---------- Main ----------
 int main()
@@ -332,6 +449,7 @@ int main()
 	InitWindow(Screen_Width, Screen_Height, "Slime Generator");
 
 	bool showWeights = false;
+	float stepTimer = 0.0f;
 	int seed = 0;
 
 	if (seed == 0)
@@ -346,7 +464,6 @@ int main()
 	std::cout << "Seed:" << seed << "\n";
 
 	std::vector<GridPoint> gridPoints = CreateGrid();
-	GenerateDungeon(gridPoints);
 	RoomRect startRoom = GenerateDungeon(gridPoints);
 	std::vector<Particle> particles = SpawnParticles(gridPoints, startRoom);
 
@@ -356,13 +473,18 @@ int main()
 		if (IsKeyPressed(KEY_R)) // regenerate
 		{
 			ClearGrid(gridPoints);
-			//GenerateDungeon(gridPoints);
 			startRoom = GenerateDungeon(gridPoints);
 			particles = SpawnParticles(gridPoints, startRoom);
 		}
 		if (IsKeyPressed(KEY_W))
 		{
 			showWeights = !showWeights;
+		}
+		stepTimer += GetFrameTime();
+		if (stepTimer >= Step_Interval)
+		{
+			stepTimer = 0.0f;
+			IterateParticles(particles, gridPoints);
 		}
 
 		BeginDrawing();
